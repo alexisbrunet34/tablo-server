@@ -48,7 +48,15 @@ Le fichier est envoyé en `multipart/form-data` dans le champ `file` (JPEG, PNG.
 curl -X POST -F "file=@/chemin/vers/mon_image.jpg" http://<ip-du-pi>:8000/ocr
 ```
 
-Depuis le Pi lui-même, remplacer `<ip-du-pi>` par `localhost`.
+Le `@` devant le chemin est obligatoire : sans lui, curl envoie le texte du chemin et non le fichier.
+
+Depuis Windows (PowerShell), utiliser `curl.exe` (et non `curl`, qui est un alias d'une autre commande) :
+
+```powershell
+curl.exe -X POST -F "file=@C:\Users\alexis\Desktop\image.jpg" http://<ip-du-pi>:8000/ocr
+```
+
+`localhost` ne fonctionne que si la commande est lancée sur la machine qui héberge le serveur ; depuis un autre poste, utiliser l'IP du Pi.
 Vérifier que le serveur répond : `curl http://<ip-du-pi>:8000/health`.
 
 Réponse :
