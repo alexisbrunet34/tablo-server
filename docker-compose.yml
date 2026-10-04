@@ -1,0 +1,14 @@
+services:
+  ocr:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      OCR_LANG: fr
+    # Conserve les modèles téléchargés par PaddleOCR entre deux redémarrages
+    volumes:
+      - paddleocr-models:/root/.paddleocr
+    restart: unless-stopped
+
+volumes:
+  paddleocr-models:
