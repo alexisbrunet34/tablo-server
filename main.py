@@ -50,9 +50,11 @@ def detect_lines(img: Image.Image) -> list[tuple[int, int, int, int]]:
 
     Retourne une liste de rectangles (gauche, haut, droite, bas), un par ligne.
     """
-    result = detector.ocr(np.array(img), rec=False, cls=False)  # rec=False : détection seule
+    # On appelle directement le détecteur interne : detector.ocr(rec=False) plante dans
+    # PaddleOCR 2.7.3 (bug sur la valeur de retour). PaddleOCR attend une image BGR (OpenCV).
+    polygons, _ = detector.text_detector(np.array(img)[:, :, ::-1])
     boxes = []
-    for polygon in result[0] or []:
+    for polygon in [] if polygons is None else polygons:
         xs = [p[0] for p in polygon]
         ys = [p[1] for p in polygon]
         boxes.append((min(xs), min(ys), max(xs), max(ys)))
