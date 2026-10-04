@@ -9,7 +9,7 @@ import os
 import torch
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from PIL import Image, ImageOps
-from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
+from transformers import AutoProcessor, BitsAndBytesConfig, Qwen2_5_VLForConditionalGeneration
 
 # Modèle de vision (Hugging Face). Exemples :
 #   "Qwen/Qwen2.5-VL-3B-Instruct" : léger (~7 Go), bon compromis (défaut)
@@ -21,6 +21,9 @@ PROMPT = os.getenv(
     "Transcris fidèlement tout le texte manuscrit de cette image, en conservant les accents "
     "et les retours à la ligne. Réponds uniquement avec le texte, sans commentaire.",
 )
+# Quantification 4 bits sur GPU : le modèle 3B tient en ~2,5 Go de VRAM au lieu de ~7 Go
+# (indispensable avec 6 Go de VRAM, ex. RTX 2060). Mettre QUANTIZE_4BIT=0 pour la désactiver.
+QUANTIZE_4BIT = os.getenv("QUANTIZE_4BIT", "1") == "1"
 # Taille max de l'image acceptée (10 Mo).
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 # Nombre max de pixels analysés : limite la mémoire et le temps de calcul (1 "jeton" = 28x28 px).
@@ -30,13 +33,23 @@ MAX_NEW_TOKENS = 512
 
 app = FastAPI(title="Tablo OCR", description="Extraction de texte manuscrit via un modèle de vision local")
 
-# Le modèle est chargé UNE seule fois au démarrage (cela prend du temps et beaucoup de RAM).
-# GPU NVIDIA si disponible (rapide), sinon CPU (lent). bfloat16 divise par deux la mémoire
-# utilisée par rapport à float32 (~7 Go au lieu de ~14 Go pour le modèle 3B).
+# Le modèle est chargé UNE seule fois au démarrage (cela prend du temps et beaucoup de mémoire).
 device = "cuda" if torch.cuda.is_available() else "cpu"
 processor = AutoProcessor.from_pretrained(MODEL_NAME, max_pixels=MAX_PIXELS, use_fast=False)
-model = Qwen2_5_VLForConditionalGeneration.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16)
-model = model.to(device).eval()
+
+if device == "cuda":
+    # float16 (et non bfloat16) : les GPU NVIDIA avant la série RTX 30 ne gèrent pas bfloat16.
+    quantization = None
+    if QUANTIZE_4BIT:
+        quantization = BitsAndBytesConfig(
+            load_in_4bit=True, bnb_4bit_quant_type="nf4", bnb_4bit_compute_dtype=torch.float16
+        )
+    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+        MODEL_NAME, torch_dtype=torch.float16, quantization_config=quantization, device_map="cuda"
+    ).eval()
+else:
+    # CPU : bfloat16 divise par deux la mémoire par rapport à float32 (mais reste lent).
+    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16).eval()
 
 
 def load_image(data: bytes) -> Image.Image:
@@ -65,7 +78,7 @@ def transcribe(img: Image.Image) -> str:
 @app.get("/health")
 def health():
     """Vérifie que le serveur tourne."""
-    return {"status": "ok", "model": MODEL_NAME, "device": device}
+    return {"status": "ok", "model": MODEL_NAME, "device": device, "4bit": device == "cuda" and QUANTIZE_4BIT}
 
 
 @app.post("/ocr")

@@ -10,8 +10,8 @@ Le modèle est lourd : ce n'est **pas adapté à un Raspberry Pi**.
 
 | Modèle (`VISION_MODEL`)        | Mémoire nécessaire | Remarque                          |
 |--------------------------------|--------------------|-----------------------------------|
-| `Qwen/Qwen2.5-VL-3B-Instruct`  | ~8 Go VRAM ou ~8 Go RAM | défaut, bon compromis        |
-| `Qwen/Qwen2.5-VL-7B-Instruct`  | ~16 Go VRAM        | plus précis, licence Apache 2.0   |
+| `Qwen/Qwen2.5-VL-3B-Instruct`  | ~3 Go VRAM (4 bits) ou ~8 Go RAM (CPU) | défaut, bon compromis ; tient sur un GPU 6 Go |
+| `Qwen/Qwen2.5-VL-7B-Instruct`  | ~6 Go VRAM (4 bits) | plus précis, licence Apache 2.0   |
 
 - Avec un **GPU NVIDIA** : quelques secondes par image.
 - Sur **CPU seul** : fonctionne, mais compter de une à plusieurs minutes par image.
@@ -57,6 +57,7 @@ Documentation interactive : http://localhost:8000/docs
 ## Configuration (variables d'environnement)
 
 - `VISION_MODEL` : modèle Hugging Face à utiliser (défaut `Qwen/Qwen2.5-VL-3B-Instruct`).
+- `QUANTIZE_4BIT` : `1` (défaut) charge le modèle en 4 bits sur GPU pour économiser la VRAM ; `0` pour la désactiver (16 bits, plus de VRAM).
 - `OCR_PROMPT` : consigne donnée au modèle (par défaut : transcrire fidèlement le texte, en français).
 
 ## Envoyer une image avec curl

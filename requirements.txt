@@ -5,3 +5,4 @@ python-multipart==0.0.9   # nécessaire pour l'upload de fichiers
 transformers==4.49.0      # première version qui supporte Qwen2.5-VL
 accelerate
 pillow
+bitsandbytes>=0.45  # quantification 4 bits sur GPU NVIDIA
