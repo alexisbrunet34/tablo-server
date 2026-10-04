@@ -41,7 +41,7 @@ et décommenter le bloc `deploy`.
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
-pip install torch==2.5.1   # ou avec --index-url https://download.pytorch.org/whl/cpu pour la version CPU légère
+pip install torch==2.5.1   # ou, pour la version CPU légère : pip install torch==2.5.1 --extra-index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```

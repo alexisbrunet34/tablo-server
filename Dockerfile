@@ -6,7 +6,7 @@ WORKDIR /app
 # PyTorch : version CPU par défaut (légère). Pour un GPU NVIDIA, construire avec
 #   --build-arg TORCH_INDEX=https://download.pytorch.org/whl/cu121
 ARG TORCH_INDEX=https://download.pytorch.org/whl/cpu
-RUN pip install --no-cache-dir torch==2.5.1 --index-url ${TORCH_INDEX}
+RUN pip install --no-cache-dir torch==2.5.1 --extra-index-url ${TORCH_INDEX}
 
 # Les dépendances d'abord : cette couche est mise en cache tant que requirements.txt ne change pas
 COPY requirements.txt .
