@@ -33,9 +33,11 @@ Le serveur écoute sur le port 8000. Au premier lancement, le modèle est télé
 (plusieurs Go, internet requis) et conservé dans un volume Docker : le démarrage prend du temps,
 attendre la ligne `Application startup complete` dans les logs.
 
-**Avec un GPU NVIDIA** (nécessite le [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/)) :
-dans `docker-compose.yml`, remplacer `TORCH_INDEX` par `https://download.pytorch.org/whl/cu121`
-et décommenter le bloc `deploy`.
+**GPU NVIDIA** : la configuration par défaut utilise le GPU (PyTorch CUDA 12.1 + accès GPU dans `docker-compose.yml`).
+- Windows (Docker Desktop + WSL2) : il suffit d'avoir un pilote NVIDIA à jour sur Windows.
+- Linux : installer le [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/).
+- Vérifier : `curl http://localhost:8000/health` doit répondre `"device": "cuda"`.
+- Pour utiliser le CPU à la place : mettre `TORCH_INDEX: https://download.pytorch.org/whl/cpu` et commenter le bloc `deploy`.
 
 **Le conteneur redémarre en boucle pendant le chargement ?** C'est un manque de mémoire. Vérifier avec
 `docker inspect <conteneur> --format "{{.State.OOMKilled}}"` (`true` = mémoire insuffisante), puis, sous Windows,
