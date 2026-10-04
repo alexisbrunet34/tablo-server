@@ -1,0 +1,9 @@
+# Versions épinglées : l'API de PaddleOCR 2.x diffère de la 3.x
+fastapi==0.115.0
+uvicorn==0.30.6
+python-multipart==0.0.9   # nécessaire pour l'upload de fichiers
+paddlepaddle==2.6.2       # wheel aarch64 disponible (Raspberry Pi 64 bits)
+paddleocr==2.7.3
+numpy<2
+opencv-python-headless<4.10
+pillow
