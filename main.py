@@ -31,11 +31,12 @@ MAX_NEW_TOKENS = 512
 app = FastAPI(title="Tablo OCR", description="Extraction de texte manuscrit via un modèle de vision local")
 
 # Le modèle est chargé UNE seule fois au démarrage (cela prend du temps et beaucoup de RAM).
-# GPU NVIDIA si disponible (rapide, bfloat16), sinon CPU (lent, float32 pour la compatibilité).
+# GPU NVIDIA si disponible (rapide), sinon CPU (lent). bfloat16 divise par deux la mémoire
+# utilisée par rapport à float32 (~7 Go au lieu de ~14 Go pour le modèle 3B).
 device = "cuda" if torch.cuda.is_available() else "cpu"
-dtype = torch.bfloat16 if device == "cuda" else torch.float32
-processor = AutoProcessor.from_pretrained(MODEL_NAME, max_pixels=MAX_PIXELS)
-model = Qwen2_5_VLForConditionalGeneration.from_pretrained(MODEL_NAME, torch_dtype=dtype).to(device).eval()
+processor = AutoProcessor.from_pretrained(MODEL_NAME, max_pixels=MAX_PIXELS, use_fast=False)
+model = Qwen2_5_VLForConditionalGeneration.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16)
+model = model.to(device).eval()
 
 
 def load_image(data: bytes) -> Image.Image:

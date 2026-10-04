@@ -10,7 +10,7 @@ Le modèle est lourd : ce n'est **pas adapté à un Raspberry Pi**.
 
 | Modèle (`VISION_MODEL`)        | Mémoire nécessaire | Remarque                          |
 |--------------------------------|--------------------|-----------------------------------|
-| `Qwen/Qwen2.5-VL-3B-Instruct`  | ~8 Go VRAM ou ~14 Go RAM | défaut, bon compromis       |
+| `Qwen/Qwen2.5-VL-3B-Instruct`  | ~8 Go VRAM ou ~8 Go RAM | défaut, bon compromis        |
 | `Qwen/Qwen2.5-VL-7B-Instruct`  | ~16 Go VRAM        | plus précis, licence Apache 2.0   |
 
 - Avec un **GPU NVIDIA** : quelques secondes par image.
@@ -36,6 +36,10 @@ attendre la ligne `Application startup complete` dans les logs.
 **Avec un GPU NVIDIA** (nécessite le [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/)) :
 dans `docker-compose.yml`, remplacer `TORCH_INDEX` par `https://download.pytorch.org/whl/cu121`
 et décommenter le bloc `deploy`.
+
+**Le conteneur redémarre en boucle pendant le chargement ?** C'est un manque de mémoire. Vérifier avec
+`docker inspect <conteneur> --format "{{.State.OOMKilled}}"` (`true` = mémoire insuffisante), puis, sous Windows,
+augmenter la mémoire de WSL2 dans `C:\Users\<vous>\.wslconfig` (`[wsl2]` puis `memory=12GB`) et lancer `wsl --shutdown`.
 
 ## Lancement sans Docker
 
@@ -88,6 +92,7 @@ Réponse :
 
 - Un modèle génératif peut **inventer ou « corriger » des mots** plutôt que de les lire fidèlement.
 - Pas de score de confiance dans la réponse.
+- Sous Docker Desktop (Windows), la mémoire allouée à WSL2 doit être suffisante (voir ci-dessous).
 - Une seule requête à la fois est vraiment efficace (le modèle occupe toute la machine).
 - Pas d'authentification, pas de HTTPS.
 
