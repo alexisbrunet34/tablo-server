@@ -1,6 +1,7 @@
 # Tablo OCR (POC)
 
-API Python (FastAPI + PaddleOCR) qui reçoit une image et renvoie le texte extrait.
+API Python (FastAPI) qui reçoit une image et renvoie le texte manuscrit extrait.
+Pipeline : **PaddleOCR** détecte les lignes de texte, puis **TrOCR handwritten** (Hugging Face) lit chacune d'elles.
 Pensée pour un Raspberry Pi 4 sous Ubuntu 64 bits (aarch64).
 
 ## Lancement avec Docker (recommandé)
@@ -18,15 +19,16 @@ docker compose down
 ```
 
 Le serveur écoute sur le port 8000. La première construction est longue sur un Pi
-(installation de PaddlePaddle). Au premier lancement, PaddleOCR télécharge ses modèles
-(~15 Mo, internet requis) ; ils sont conservés dans un volume Docker.
-Pour changer la langue, modifier `OCR_LANG` dans `docker-compose.yml` (ex. `en`).
+(installation de PyTorch et PaddlePaddle, image de plusieurs Go). Au premier lancement, les
+modèles sont téléchargés (internet requis ; TrOCR base ≈ 1,3 Go) et conservés dans des volumes Docker.
+Pour un modèle plus léger/rapide, mettre `TROCR_MODEL: microsoft/trocr-small-handwritten`
+dans `docker-compose.yml`.
 
 Sans Compose :
 
 ```bash
 docker build -t tablo-ocr .
-docker run -d --name tablo-ocr -p 8000:8000 -e OCR_LANG=fr --restart unless-stopped tablo-ocr
+docker run -d --name tablo-ocr -p 8000:8000 -e TROCR_MODEL=microsoft/trocr-base-handwritten --restart unless-stopped tablo-ocr
 ```
 
 ## Lancement sans Docker
@@ -75,15 +77,17 @@ Autres endpoints : `GET /health`.
 
 ## Limites du POC
 
-- PaddleOCR n'est **pas spécialisé dans le manuscrit** : bon sur une écriture claire en script/capitales, moyen sur de l'écriture cursive.
+- TrOCR handwritten est entraîné sur de l'**anglais** (base IAM) : les accents français (é, è, à...) seront mal lus.
+- Il lit une ligne à la fois : la qualité dépend de la détection des lignes par PaddleOCR (mise en page simple recommandée).
+- Pas de score de confiance dans la réponse.
 - Sur Pi 4, compter quelques secondes par image (CPU uniquement).
 - Pas d'authentification, pas de HTTPS.
 
 ## Pistes d'amélioration
 
-- **Qualité manuscrit** : tester un modèle dédié (TrOCR handwritten de Hugging Face, ou l'API Claude/vision) en repli quand la confiance est basse.
+- **Français / accents** : fine-tuner TrOCR sur des données françaises, ou utiliser un modèle de vision (API Claude) en repli.
 - **Prétraitement** : niveaux de gris, binarisation (OpenCV), redressement pour améliorer la lecture.
-- **Performance** : exporter en ONNX / utiliser les modèles « mobile » de PaddleOCR ; file d'attente pour traiter une image à la fois.
+- **Performance** : utiliser `trocr-small-handwritten`, exporter en ONNX, quantifier le modèle ; file d'attente pour traiter une image à la fois.
 - **Déploiement** : service `systemd` pour démarrer au boot, reverse proxy (nginx/Caddy) avec HTTPS.
 - **Sécurité** : clé d'API ou token sur `/ocr`.
 - **Qualité du code** : tests automatisés, Dockerfile (image arm64).

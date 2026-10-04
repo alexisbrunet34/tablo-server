@@ -1,9 +1,14 @@
-# Versions épinglées : l'API de PaddleOCR 2.x diffère de la 3.x
+# Wheels PyTorch CPU (évite de télécharger la version CUDA, énorme et inutile sur un Pi)
+--extra-index-url https://download.pytorch.org/whl/cpu
 fastapi==0.115.0
 uvicorn==0.30.6
 python-multipart==0.0.9   # nécessaire pour l'upload de fichiers
+# PaddleOCR : uniquement pour DÉTECTER où se trouvent les lignes de texte
 paddlepaddle==2.6.2       # wheel aarch64 disponible (Raspberry Pi 64 bits)
 paddleocr==2.7.3
+# TrOCR : lit le texte manuscrit de chaque ligne détectée
+torch==2.2.2
+transformers==4.44.2
 numpy<2
 opencv-python-headless<4.10
 pillow
