@@ -1,11 +1,12 @@
-# Image Python officielle, multi-architecture (fonctionne sur Raspberry Pi 64 bits / arm64)
+# Image Python officielle
 FROM python:3.10-slim
 
-# Bibliothèques système requises par OpenCV (utilisé par PaddleOCR)
-RUN apt-get update && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
+
+# PyTorch : version CPU par défaut (légère). Pour un GPU NVIDIA, construire avec
+#   --build-arg TORCH_INDEX=https://download.pytorch.org/whl/cu121
+ARG TORCH_INDEX=https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir torch==2.5.1 --index-url ${TORCH_INDEX}
 
 # Les dépendances d'abord : cette couche est mise en cache tant que requirements.txt ne change pas
 COPY requirements.txt .

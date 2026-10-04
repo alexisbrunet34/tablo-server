@@ -1,13 +1,24 @@
 # Tablo OCR (POC)
 
-API Python (FastAPI) qui reçoit une image et renvoie le texte manuscrit extrait.
-Pipeline : **PaddleOCR** détecte les lignes de texte, puis **TrOCR handwritten** (Hugging Face) lit chacune d'elles.
-Pensée pour un Raspberry Pi 4 sous Ubuntu 64 bits (aarch64).
+API Python (FastAPI) qui reçoit une image et renvoie le texte manuscrit qu'elle contient.
+La lecture est faite par un **modèle de vision local** (Qwen2.5-VL, via Hugging Face Transformers) :
+aucune donnée ne quitte la machine.
+
+## Prérequis matériels
+
+Le modèle est lourd : ce n'est **pas adapté à un Raspberry Pi**.
+
+| Modèle (`VISION_MODEL`)        | Mémoire nécessaire | Remarque                          |
+|--------------------------------|--------------------|-----------------------------------|
+| `Qwen/Qwen2.5-VL-3B-Instruct`  | ~8 Go VRAM ou ~14 Go RAM | défaut, bon compromis       |
+| `Qwen/Qwen2.5-VL-7B-Instruct`  | ~16 Go VRAM        | plus précis, licence Apache 2.0   |
+
+- Avec un **GPU NVIDIA** : quelques secondes par image.
+- Sur **CPU seul** : fonctionne, mais compter de une à plusieurs minutes par image.
 
 ## Lancement avec Docker (recommandé)
 
-Prérequis : Docker et le plugin Compose sur le Raspberry Pi
-(`sudo apt install -y docker.io docker-compose-v2`).
+Prérequis : Docker et le plugin Compose.
 
 ```bash
 # Construire l'image et démarrer le serveur en arrière-plan
@@ -18,36 +29,36 @@ docker compose logs -f
 docker compose down
 ```
 
-Le serveur écoute sur le port 8000. La première construction est longue sur un Pi
-(installation de PyTorch et PaddlePaddle, image de plusieurs Go). Au premier lancement, les
-modèles sont téléchargés (internet requis ; TrOCR base ≈ 1,3 Go) et conservés dans des volumes Docker.
-Pour un modèle plus léger/rapide, mettre `TROCR_MODEL: microsoft/trocr-small-handwritten`
-dans `docker-compose.yml`.
+Le serveur écoute sur le port 8000. Au premier lancement, le modèle est téléchargé
+(plusieurs Go, internet requis) et conservé dans un volume Docker : le démarrage prend du temps,
+attendre la ligne `Application startup complete` dans les logs.
 
-Sans Compose :
-
-```bash
-docker build -t tablo-ocr .
-docker run -d --name tablo-ocr -p 8000:8000 -e TROCR_MODEL=microsoft/trocr-base-handwritten --restart unless-stopped tablo-ocr
-```
+**Avec un GPU NVIDIA** (nécessite le [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/)) :
+dans `docker-compose.yml`, remplacer `TORCH_INDEX` par `https://download.pytorch.org/whl/cu121`
+et décommenter le bloc `deploy`.
 
 ## Lancement sans Docker
 
 ```bash
-sudo apt update && sudo apt install -y python3-venv libgl1 libglib2.0-0
 python3 -m venv .venv && source .venv/bin/activate
+pip install torch==2.5.1   # ou avec --index-url https://download.pytorch.org/whl/cpu pour la version CPU légère
 pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 Documentation interactive : http://localhost:8000/docs
 
+## Configuration (variables d'environnement)
+
+- `VISION_MODEL` : modèle Hugging Face à utiliser (défaut `Qwen/Qwen2.5-VL-3B-Instruct`).
+- `OCR_PROMPT` : consigne donnée au modèle (par défaut : transcrire fidèlement le texte, en français).
+
 ## Envoyer une image avec curl
 
-Le fichier est envoyé en `multipart/form-data` dans le champ `file` (JPEG, PNG... max 5 Mo) :
+Le fichier est envoyé en `multipart/form-data` dans le champ `file` (JPEG, PNG... max 10 Mo) :
 
 ```bash
-curl -X POST -F "file=@/chemin/vers/mon_image.jpg" http://<ip-du-pi>:8000/ocr
+curl -X POST -F "file=@/chemin/vers/mon_image.jpg" http://localhost:8000/ocr
 ```
 
 Le `@` devant le chemin est obligatoire : sans lui, curl envoie le texte du chemin et non le fichier.
@@ -55,11 +66,11 @@ Le `@` devant le chemin est obligatoire : sans lui, curl envoie le texte du chem
 Depuis Windows (PowerShell), utiliser `curl.exe` (et non `curl`, qui est un alias d'une autre commande) :
 
 ```powershell
-curl.exe -X POST -F "file=@C:\Users\alexis\Desktop\image.jpg" http://<ip-du-pi>:8000/ocr
+curl.exe -X POST -F "file=@C:\Users\alexis\Desktop\image.jpg" http://localhost:8000/ocr
 ```
 
-`localhost` ne fonctionne que si la commande est lancée sur la machine qui héberge le serveur ; depuis un autre poste, utiliser l'IP du Pi.
-Vérifier que le serveur répond : `curl http://<ip-du-pi>:8000/health`.
+Si la commande est lancée depuis un autre poste, remplacer `localhost` par l'IP du serveur.
+Vérifier que le serveur répond : `curl http://localhost:8000/health`.
 
 Réponse :
 
@@ -67,27 +78,22 @@ Réponse :
 {
   "text": "Bonjour\nle monde",
   "lines": [
-    {"text": "Bonjour", "confidence": 0.93},
-    {"text": "le monde", "confidence": 0.88}
+    {"text": "Bonjour"},
+    {"text": "le monde"}
   ]
 }
 ```
 
-Autres endpoints : `GET /health`.
-
 ## Limites du POC
 
-- TrOCR handwritten est entraîné sur de l'**anglais** (base IAM) : les accents français (é, è, à...) seront mal lus.
-- Il lit une ligne à la fois : la qualité dépend de la détection des lignes par PaddleOCR (mise en page simple recommandée).
+- Un modèle génératif peut **inventer ou « corriger » des mots** plutôt que de les lire fidèlement.
 - Pas de score de confiance dans la réponse.
-- Sur Pi 4, compter quelques secondes par image (CPU uniquement).
+- Une seule requête à la fois est vraiment efficace (le modèle occupe toute la machine).
 - Pas d'authentification, pas de HTTPS.
 
 ## Pistes d'amélioration
 
-- **Français / accents** : fine-tuner TrOCR sur des données françaises, ou utiliser un modèle de vision (API Claude) en repli.
-- **Prétraitement** : niveaux de gris, binarisation (OpenCV), redressement pour améliorer la lecture.
-- **Performance** : utiliser `trocr-small-handwritten`, exporter en ONNX, quantifier le modèle ; file d'attente pour traiter une image à la fois.
-- **Déploiement** : service `systemd` pour démarrer au boot, reverse proxy (nginx/Caddy) avec HTTPS.
-- **Sécurité** : clé d'API ou token sur `/ocr`.
-- **Qualité du code** : tests automatisés, Dockerfile (image arm64).
+- **Qualité** : passer à `Qwen2.5-VL-7B`, ajuster `OCR_PROMPT` (ex. préciser la langue ou le type d'écriture).
+- **Performance** : quantification (4/8 bits), ou serveur d'inférence dédié (vLLM, llama.cpp).
+- **Déploiement** : reverse proxy avec HTTPS, clé d'API sur `/ocr`.
+- **Qualité du code** : tests automatisés avec un jeu d'images de référence.
